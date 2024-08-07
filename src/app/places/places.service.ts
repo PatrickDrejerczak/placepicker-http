@@ -1,20 +1,50 @@
-import { Injectable, signal } from '@angular/core';
-
+import { inject, Injectable, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Place } from './place.model';
+import { catchError, map, tap, throwError } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
 })
 export class PlacesService {
+  private httpClient = inject(HttpClient);
   private userPlaces = signal<Place[]>([]);
 
   loadedUserPlaces = this.userPlaces.asReadonly();
 
-  loadAvailablePlaces() {}
+  loadAvailablePlaces() {
+    return this.fetchPlaces(
+      'http://localhost:3000/places',
+      'Failed to fetch available places.'
+    );
+  }
 
-  loadUserPlaces() {}
+  loadUserPlaces() {
+    return this.fetchPlaces(
+      'http://localhost:3000/user-places',
+      'Failed to fetch your favorite places.'
+    ).pipe(
+      tap({
+        next: (userPlaces) => this.userPlaces.set(userPlaces),
+      })
+    );
+  }
 
-  addPlaceToUserPlaces(place: Place) {}
+  addPlaceToUserPlaces(placeId: string) {
+    return this.httpClient.put('http://localhost:3000/user-places', {
+      placeId: placeId,
+    });
+  }
 
   removeUserPlace(place: Place) {}
+
+  private fetchPlaces(url: string, errorMessage: string) {
+    return this.httpClient.get<{ places: Place[] }>(url).pipe(
+      map((resData) => resData.places),
+      catchError((error) => {
+        console.log(error);
+        return throwError(() => new Error(errorMessage));
+      })
+    );
+  }
 }
